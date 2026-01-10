@@ -9,26 +9,30 @@
 Adafruit_NeoTrellis trellis;
 
 // Rotary encoder pins (adjust to available pins on Nano 33 IoT)
-RotaryEncoder encoder1(2, 3, RotaryEncoder::LatchMode::TWO03);
-RotaryEncoder encoder2(4, 5, RotaryEncoder::LatchMode::TWO03);
+RotaryEncoder encoder1(3, 4, RotaryEncoder::LatchMode::TWO03);
+RotaryEncoder encoder2(5, 6, RotaryEncoder::LatchMode::TWO03);
 
 int lastPos1 = 0, lastPos2 = 0;
 
 const int TONE_PIN = 7;
+const int BUTTON1_PIN = 8;
+const int BUTTON2_PIN = 9;
+const int KILL_SWITCH_PIN = 2; // unused for now. Wired up and ready.
+
+int lastButton1State = HIGH;
+int lastButton2State = HIGH;
 
 //define a callback for key presses
 TrellisCallback blink(keyEvent evt){
-  // Check is the pad pressed?
   if (evt.bit.EDGE == SEESAW_KEYPAD_EDGE_RISING) {
-    Serial.print("Pressed: ");
+    Serial.print("yPressed: ");
     Serial.println(evt.bit.NUM);
-    tone(TONE_PIN, 440 + (evt.bit.NUM * 50), 100); // Play tone based on button number
+    tone(TONE_PIN, 440 + (evt.bit.NUM * 50), 100);
     trellis.pixels.setPixelColor(evt.bit.NUM, Wheel(map(evt.bit.NUM, 0, trellis.pixels.numPixels(), 0, 255))); //on rising
   } else if (evt.bit.EDGE == SEESAW_KEYPAD_EDGE_FALLING) {
-  // or is the pad released?
-    Serial.print("Released: ");
+    Serial.print("xReleased: ");
     Serial.println(evt.bit.NUM);
-    trellis.pixels.setPixelColor(evt.bit.NUM, 0); //off falling
+    trellis.pixels.setPixelColor(evt.bit.NUM, 0);
   }
 
   // Turn on/off the neopixels!
@@ -40,6 +44,8 @@ TrellisCallback blink(keyEvent evt){
 void setup() {
   Serial.begin(9600);
   pinMode(TONE_PIN, OUTPUT);
+  pinMode(BUTTON1_PIN, INPUT_PULLUP);
+  pinMode(BUTTON2_PIN, INPUT_PULLUP);
   // while(!Serial) delay(1);
   
   if (!trellis.begin()) {
@@ -69,10 +75,27 @@ void setup() {
   }
   
   Serial.println("Setup complete. Waiting for input...");
+  tone(TONE_PIN, 523, 50); // C5
 }
 
 void loop() {
   trellis.read();  // interrupt management does all the work! :)
+  
+  // Handle button 1
+  int button1State = digitalRead(BUTTON1_PIN);
+  if (button1State == LOW && lastButton1State == HIGH) {
+    Serial.println("Button 1 Pressed");
+    tone(TONE_PIN, 440, 100); // A4
+  }
+  lastButton1State = button1State;
+  
+  // Handle button 2
+  int button2State = digitalRead(BUTTON2_PIN);
+  if (button2State == LOW && lastButton2State == HIGH) {
+    Serial.println("Button 2 Pressed");
+    tone(TONE_PIN, 550, 100); // C#5
+  }
+  lastButton2State = button2State;
   
   // Handle encoder 1
   encoder1.tick();
@@ -80,8 +103,10 @@ void loop() {
   if (newPos1 != lastPos1) {
     if (newPos1 > lastPos1) {
       Serial.println("Encoder 1: CW");
+      tone(TONE_PIN, 523, 50); // C5
     } else {
       Serial.println("Encoder 1: CCW");
+      tone(TONE_PIN, 392, 50); // G4
     }
     lastPos1 = newPos1;
   }
@@ -92,8 +117,10 @@ void loop() {
   if (newPos2 != lastPos2) {
     if (newPos2 > lastPos2) {
       Serial.println("Encoder 2: CW");
+      tone(TONE_PIN, 659, 50); // E5
     } else {
       Serial.println("Encoder 2: CCW");
+      tone(TONE_PIN, 330, 50); // E4
     }
     lastPos2 = newPos2;
   }
