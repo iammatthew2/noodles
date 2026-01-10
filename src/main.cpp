@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <PubSubClient.h>
 #include <WiFiNINA.h>
 
 #include "EncoderChannel.h"
@@ -9,6 +10,39 @@
 // WiFi credentials
 const char* ssid = SECRET_SSID;
 const char* password = SECRET_PASS;
+
+// MQTT configuration
+const char* mqttBroker = "192.168.0.132";  // Global broker
+const uint16_t mqttPort = 1889;  // Adjust if your broker uses a different port
+
+// App definitions
+struct AppDefinition {
+  const char* name;
+  const char* topic;
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+};
+
+AppDefinition apps[] = {
+    {"Yodel", "apps/yodel/control", 255, 80, 80},
+    {"Skippy", "apps/skippy/control", 80, 255, 120},
+    {"Jibbers", "apps/jibbers/control", 80, 180, 255},
+    {"Pickles", "apps/pickles/control", 255, 200, 80},
+};
+
+enum ControlState { STANDALONE, APP_SELECTION, APP_CONTROL };
+
+ControlState controlState = STANDALONE;
+int selectedAppIndex = 0;
+const uint8_t APP_SELECT_KEY = 15;    // Bottom-right key
+const uint8_t APP_INDICATOR_KEY = 0;  // Use top-left as indicator for selection
+bool selectBlinkOn = false;
+unsigned long lastBlinkMs = 0;
+const unsigned long BLINK_INTERVAL_MS = 300;
+const int appCount = sizeof(apps) / sizeof(AppDefinition);
+unsigned long lastConnectivityCheckMs = 0;
+const unsigned long CONNECTIVITY_CHECK_INTERVAL_MS = 5000;
 
 // Pin definitions
 const int ENCODER1_PIN_A = 3;
@@ -25,8 +59,32 @@ NeoTrellisController* trellisController;
 EncoderChannel* encoder1;
 EncoderChannel* encoder2;
 SimpleButtonPairController* simpleButtonPairController;
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+
+// Forward declarations
+void handleTrellisKey(uint8_t key, bool pressed);
+void refreshSelectionPixels();
+void enterAppSelectionState();
+void enterStandaloneState();
+void enterAppControlState();
+bool ensureMqttConnected();
+void updateSelectionBlink();
+void pollConnectivity();
 
 void encoderCallback(int channel, int direction) {
+  // Selection logic uses encoder 1
+  if (controlState == APP_SELECTION && channel == 1) {
+    selectedAppIndex =
+        (selectedAppIndex + (direction > 0 ? 1 : -1) + appCount) % appCount;
+    Serial.print("App selection -> ");
+    Serial.println(apps[selectedAppIndex].name);
+    tone(TONE_PIN, direction > 0 ? 700 : 500, 60);
+    refreshSelectionPixels();
+    return;
+  }
+
+  // Default standalone behavior
   if (channel == 1) {
     if (direction > 0) {
       Serial.println("Encoder 1: CW");
@@ -47,10 +105,25 @@ void encoderCallback(int channel, int direction) {
 }
 
 void buttonCallback(int buttonNum) {
-  Serial.print("Button ");
-  Serial.print(buttonNum);
-  Serial.println(" callback triggered");
-  // Additional logic can be added here
+  // Button 1: enter/exit selection (with MQTT check)
+  if (buttonNum == 1) {
+    if (controlState == STANDALONE) {
+      if (!ensureMqttConnected()) {
+        Serial.println("MQTT not connected - staying in standalone");
+        tone(TONE_PIN, 200, 200);  // Error tone
+        return;
+      }
+      enterAppSelectionState();
+    } else {
+      enterStandaloneState();
+    }
+    return;
+  }
+
+  // Button 2 reserved for future MQTT test/reset
+  if (buttonNum == 2) {
+    Serial.println("Button 2 pressed (reserved for MQTT test/reset)");
+  }
 }
 
 void connectToWiFi() {
@@ -77,6 +150,7 @@ void connectToWiFi() {
   }
   Serial.println();
 
+  trellisController->setKeyHandler(handleTrellisKey);
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("✓ WiFi Connected!");
     Serial.print("IP Address: ");
@@ -91,9 +165,136 @@ void connectToWiFi() {
     tone(TONE_PIN, 1319, 100);  // E6
   } else {
     Serial.println("✗ Failed to connect to WiFi\n");
+    // WiFi / MQTT
 
+    ensureMqttConnected();
     // Failure tone
     tone(TONE_PIN, 200, 200);
+  }
+}
+
+bool ensureMqttConnected() {
+  if (mqttClient.connected()) {
+    return true;
+  }
+
+  mqttClient.setServer(mqttBroker, mqttPort);
+
+  Serial.print("Connecting to MQTT broker: ");
+  Serial.print(mqttBroker);
+  Serial.print(":");
+  Serial.println(mqttPort);
+
+  String clientId = "noodles-" + String(millis(), HEX);
+  bool connected = mqttClient.connect(clientId.c_str());
+
+  if (connected) {
+    Serial.println("✓ MQTT connected");
+  } else {
+    Serial.print("✗ MQTT connect failed, rc=");
+    Serial.println(mqttClient.state());
+  }
+
+  return connected;
+}
+
+void pollConnectivity() {
+  unsigned long now = millis();
+  if (now - lastConnectivityCheckMs < CONNECTIVITY_CHECK_INTERVAL_MS) {
+    return;
+  }
+  lastConnectivityCheckMs = now;
+
+  int wifiStatus = WiFi.status();
+  if (wifiStatus != WL_CONNECTED) {
+    Serial.print("WiFi down (status=");
+    Serial.print(wifiStatus);
+    Serial.println(") - retrying");
+
+    WiFi.disconnect();
+    WiFi.begin(ssid, password);
+
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 5) {
+      delay(200);
+      attempts++;
+      Serial.print(".");
+    }
+    Serial.println();
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("✓ WiFi reconnected");
+    } else {
+      Serial.println("✗ WiFi still down");
+      return;
+    }
+  }
+
+  if (!mqttClient.connected()) {
+    Serial.println("MQTT disconnected - attempting reconnect");
+    ensureMqttConnected();
+  }
+}
+
+void refreshSelectionPixels() {
+  trellisController->clearPixels();
+  trellisController->setPixelColor(
+      APP_INDICATOR_KEY, trellisController->color(apps[selectedAppIndex].r,
+                                                  apps[selectedAppIndex].g,
+                                                  apps[selectedAppIndex].b));
+  trellisController->setPixelColor(
+      APP_SELECT_KEY, selectBlinkOn ? trellisController->color(255, 0, 0) : 0);
+  trellisController->showPixels();
+}
+
+void updateSelectionBlink() {
+  if (controlState != APP_SELECTION) return;
+  unsigned long now = millis();
+  if (now - lastBlinkMs >= BLINK_INTERVAL_MS) {
+    lastBlinkMs = now;
+    selectBlinkOn = !selectBlinkOn;
+    refreshSelectionPixels();
+  }
+}
+
+void enterStandaloneState() {
+  controlState = STANDALONE;
+  selectBlinkOn = false;
+  trellisController->clearPixels();
+  trellisController->showPixels();
+  Serial.println("State: STANDALONE");
+}
+
+void enterAppSelectionState() {
+  controlState = APP_SELECTION;
+  selectBlinkOn = false;
+  lastBlinkMs = millis();
+  Serial.println("State: APP_SELECTION");
+  refreshSelectionPixels();
+}
+
+void enterAppControlState() {
+  controlState = APP_CONTROL;
+  selectBlinkOn = false;
+  trellisController->clearPixels();
+  trellisController->setPixelColor(
+      APP_INDICATOR_KEY, trellisController->color(apps[selectedAppIndex].r,
+                                                  apps[selectedAppIndex].g,
+                                                  apps[selectedAppIndex].b));
+  // Confirm selection with green on the select key
+  trellisController->setPixelColor(APP_SELECT_KEY,
+                                   trellisController->color(0, 255, 0));
+  trellisController->showPixels();
+  Serial.print("State: APP_CONTROL -> ");
+  Serial.println(apps[selectedAppIndex].name);
+  tone(TONE_PIN, 900, 120);
+}
+
+void handleTrellisKey(uint8_t key, bool pressed) {
+  if (!pressed) return;
+
+  if (controlState == APP_SELECTION && key == APP_SELECT_KEY) {
+    enterAppControlState();
   }
 }
 
@@ -110,6 +311,7 @@ void setup() {
     Serial.println("Failed to initialize NeoTrellis controller!");
     while (1) delay(1);
   }
+  trellisController->setKeyHandler(handleTrellisKey);
 
   // Initialize encoders
   encoder1 = new EncoderChannel(ENCODER1_PIN_A, ENCODER1_PIN_B, 1, TONE_PIN);
@@ -124,6 +326,13 @@ void setup() {
   simpleButtonPairController->begin();
   simpleButtonPairController->setCallback(buttonCallback);
 
+  // WiFi / MQTT
+  connectToWiFi();
+  ensureMqttConnected();
+
+  // Default state
+  enterStandaloneState();
+
   Serial.println("System ready!");
 }
 
@@ -132,4 +341,10 @@ void loop() {
   encoder1->update();
   encoder2->update();
   simpleButtonPairController->update();
+  updateSelectionBlink();
+  pollConnectivity();
+
+  if (mqttClient.connected()) {
+    mqttClient.loop();
+  }
 }

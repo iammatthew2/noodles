@@ -8,6 +8,11 @@ NeoTrellisController::NeoTrellisController(int tonePin) : _tonePin(tonePin) {
   instance = this;
 }
 
+void NeoTrellisController::setKeyHandler(void (*handler)(uint8_t key,
+                                                         bool pressed)) {
+  _keyHandler = handler;
+}
+
 bool NeoTrellisController::begin() {
   // Setup pins
   pinMode(_tonePin, OUTPUT);
@@ -41,7 +46,9 @@ void NeoTrellisController::update() { trellis.read(); }
 TrellisCallback NeoTrellisController::keyCallback(keyEvent evt) {
   if (instance == nullptr) return 0;
 
-  if (evt.bit.EDGE == SEESAW_KEYPAD_EDGE_RISING) {
+  bool pressed = evt.bit.EDGE == SEESAW_KEYPAD_EDGE_RISING;
+
+  if (pressed) {
     Serial.print("Pressed: ");
     Serial.println(evt.bit.NUM);
     tone(instance->_tonePin, 440 + (evt.bit.NUM * 50), 100);
@@ -49,13 +56,18 @@ TrellisCallback NeoTrellisController::keyCallback(keyEvent evt) {
         evt.bit.NUM,
         instance->wheel(
             map(evt.bit.NUM, 0, instance->trellis.pixels.numPixels(), 0, 255)));
-  } else if (evt.bit.EDGE == SEESAW_KEYPAD_EDGE_FALLING) {
+  } else {
     Serial.print("Released: ");
     Serial.println(evt.bit.NUM);
     instance->trellis.pixels.setPixelColor(evt.bit.NUM, 0);
   }
 
   instance->trellis.pixels.show();
+
+  // Forward to external handler if present
+  if (instance->_keyHandler) {
+    instance->_keyHandler(evt.bit.NUM, pressed);
+  }
   return 0;
 }
 
@@ -86,4 +98,16 @@ uint32_t NeoTrellisController::wheel(byte wheelPos) {
     return trellis.pixels.Color(0, wheelPos * 3, 255 - wheelPos * 3);
   }
   return 0;
+}
+
+void NeoTrellisController::setPixelColor(uint8_t keyIndex, uint32_t color) {
+  trellis.pixels.setPixelColor(keyIndex, color);
+}
+
+void NeoTrellisController::clearPixels() { trellis.pixels.clear(); }
+
+void NeoTrellisController::showPixels() { trellis.pixels.show(); }
+
+uint32_t NeoTrellisController::color(uint8_t r, uint8_t g, uint8_t b) {
+  return trellis.pixels.Color(r, g, b);
 }
