@@ -3,17 +3,11 @@
 // Initialize static instance pointer
 NeoTrellisController* NeoTrellisController::instance = nullptr;
 
-NeoTrellisController::NeoTrellisController(int encoder1PinA, int encoder1PinB,
-                                           int encoder2PinA, int encoder2PinB,
-                                           int tonePin, int button1Pin, int button2Pin, int killSwitchPin)
-  : encoder1(encoder1PinA, encoder1PinB, RotaryEncoder::LatchMode::TWO03),
-    encoder2(encoder2PinA, encoder2PinB, RotaryEncoder::LatchMode::TWO03),
-    _tonePin(tonePin),
+NeoTrellisController::NeoTrellisController(int tonePin, int button1Pin, int button2Pin, int killSwitchPin)
+  : _tonePin(tonePin),
     _button1Pin(button1Pin),
     _button2Pin(button2Pin),
     _killSwitchPin(killSwitchPin),
-    lastPos1(0),
-    lastPos2(0),
     lastButton1State(HIGH),
     lastButton2State(HIGH) {
   
@@ -55,8 +49,6 @@ void NeoTrellisController::update() {
   trellis.read();
   handleButton1();
   handleButton2();
-  handleEncoder1();
-  handleEncoder2();
 }
 
 TrellisCallback NeoTrellisController::keyCallback(keyEvent evt) {
@@ -94,36 +86,6 @@ void NeoTrellisController::handleButton2() {
     tone(_tonePin, 550, 100); // C#5
   }
   lastButton2State = button2State;
-}
-
-void NeoTrellisController::handleEncoder1() {
-  encoder1.tick();
-  int newPos1 = encoder1.getPosition();
-  if (newPos1 != lastPos1) {
-    if (newPos1 > lastPos1) {
-      Serial.println("Encoder 1: CW");
-      tone(_tonePin, 523, 50); // C5
-    } else {
-      Serial.println("Encoder 1: CCW");
-      tone(_tonePin, 392, 50); // G4
-    }
-    lastPos1 = newPos1;
-  }
-}
-
-void NeoTrellisController::handleEncoder2() {
-  encoder2.tick();
-  int newPos2 = encoder2.getPosition();
-  if (newPos2 != lastPos2) {
-    if (newPos2 > lastPos2) {
-      Serial.println("Encoder 2: CW");
-      tone(_tonePin, 659, 50); // E5
-    } else {
-      Serial.println("Encoder 2: CCW");
-      tone(_tonePin, 330, 50); // E4
-    }
-    lastPos2 = newPos2;
-  }
 }
 
 void NeoTrellisController::runStartupAnimation() {
