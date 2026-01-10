@@ -31,10 +31,36 @@ AppDefinition apps[] = {
     {"Pickles", "apps/pickles/control", 255, 200, 80},
 };
 
-enum ControlState { STANDALONE, APP_SELECTION, APP_CONTROL };
+enum ControlState {
+  HOME,
+  SELECTING,
+  CONTROL_YODEL,
+  CONTROL_SKIPPY,
+  CONTROL_JIBBERS,
+  CONTROL_PICKLES
+};
 
-ControlState controlState = STANDALONE;
+ControlState controlState = HOME;
 int selectedAppIndex = 0;
+
+// Helper to get the control state for a given app index
+ControlState getControlStateForApp(int appIndex) {
+  switch (appIndex) {
+    case 0:
+      return CONTROL_YODEL;
+    case 1:
+      return CONTROL_SKIPPY;
+    case 2:
+      return CONTROL_JIBBERS;
+    case 3:
+      return CONTROL_PICKLES;
+    default:
+      return HOME;
+  }
+}
+
+// Helper to check if we're currently controlling an app
+bool isInControlState(ControlState state) { return state >= CONTROL_YODEL; }
 const uint8_t APP_SELECT_KEY = 15;    // Bottom-right key
 const uint8_t APP_INDICATOR_KEY = 0;  // Use top-left as indicator for selection
 bool selectBlinkOn = false;
@@ -65,16 +91,16 @@ PubSubClient mqttClient(wifiClient);
 // Forward declarations
 void handleTrellisKey(uint8_t key, bool pressed);
 void refreshSelectionPixels();
-void enterAppSelectionState();
-void enterStandaloneState();
-void enterAppControlState();
+void enterSelectingState();
+void enterHomeState();
+void enterControlState();
 bool ensureMqttConnected();
 void updateSelectionBlink();
 void pollConnectivity();
 
 void encoderCallback(int channel, int direction) {
   // Selection logic uses encoder 1
-  if (controlState == APP_SELECTION && channel == 1) {
+  if (controlState == SELECTING && channel == 1) {
     selectedAppIndex =
         (selectedAppIndex + (direction > 0 ? 1 : -1) + appCount) % appCount;
     Serial.print("App selection -> ");
@@ -84,7 +110,7 @@ void encoderCallback(int channel, int direction) {
     return;
   }
 
-  // Default standalone behavior
+  // Default home behavior
   if (channel == 1) {
     if (direction > 0) {
       Serial.println("Encoder 1: CW");
@@ -105,24 +131,29 @@ void encoderCallback(int channel, int direction) {
 }
 
 void buttonCallback(int buttonNum) {
-  // Button 1: enter/exit selection (with MQTT check)
+  // Button 1: toggle between SELECTING and current state
   if (buttonNum == 1) {
-    if (controlState == STANDALONE) {
+    if (controlState == SELECTING) {
+      enterHomeState();
+    } else if (controlState == HOME) {
       if (!ensureMqttConnected()) {
-        Serial.println("MQTT not connected - staying in standalone");
+        Serial.println("MQTT not connected - staying in home");
         tone(TONE_PIN, 200, 200);  // Error tone
         return;
       }
-      enterAppSelectionState();
-    } else {
-      enterStandaloneState();
+      enterSelectingState();
+    } else if (isInControlState(controlState)) {
+      // From any control state, go back to selecting
+      enterSelectingState();
     }
     return;
   }
 
-  // Button 2 reserved for future MQTT test/reset
+  // Button 2: reset to home state
   if (buttonNum == 2) {
-    Serial.println("Button 2 pressed (reserved for MQTT test/reset)");
+    Serial.println("Button 2 pressed - resetting to home state");
+    enterHomeState();
+    tone(TONE_PIN, 500, 100);  // Reset tone
   }
 }
 
@@ -237,6 +268,7 @@ void pollConnectivity() {
 }
 
 void refreshSelectionPixels() {
+  if (controlState != SELECTING) return;
   trellisController->clearPixels();
   trellisController->setPixelColor(
       APP_INDICATOR_KEY, trellisController->color(apps[selectedAppIndex].r,
@@ -248,7 +280,7 @@ void refreshSelectionPixels() {
 }
 
 void updateSelectionBlink() {
-  if (controlState != APP_SELECTION) return;
+  if (controlState != SELECTING) return;
   unsigned long now = millis();
   if (now - lastBlinkMs >= BLINK_INTERVAL_MS) {
     lastBlinkMs = now;
@@ -257,24 +289,25 @@ void updateSelectionBlink() {
   }
 }
 
-void enterStandaloneState() {
-  controlState = STANDALONE;
+void enterHomeState() {
+  controlState = HOME;
   selectBlinkOn = false;
   trellisController->clearPixels();
   trellisController->showPixels();
-  Serial.println("State: STANDALONE");
+  Serial.println("State: HOME");
 }
 
-void enterAppSelectionState() {
-  controlState = APP_SELECTION;
+void enterSelectingState() {
+  controlState = SELECTING;
   selectBlinkOn = false;
   lastBlinkMs = millis();
-  Serial.println("State: APP_SELECTION");
+  Serial.println("State: SELECTING");
   refreshSelectionPixels();
 }
 
-void enterAppControlState() {
-  controlState = APP_CONTROL;
+void enterControlState() {
+  ControlState newState = getControlStateForApp(selectedAppIndex);
+  controlState = newState;
   selectBlinkOn = false;
   trellisController->clearPixels();
   trellisController->setPixelColor(
@@ -285,7 +318,7 @@ void enterAppControlState() {
   trellisController->setPixelColor(APP_SELECT_KEY,
                                    trellisController->color(0, 255, 0));
   trellisController->showPixels();
-  Serial.print("State: APP_CONTROL -> ");
+  Serial.print("State: CONTROL -> ");
   Serial.println(apps[selectedAppIndex].name);
   tone(TONE_PIN, 900, 120);
 }
@@ -293,8 +326,8 @@ void enterAppControlState() {
 void handleTrellisKey(uint8_t key, bool pressed) {
   if (!pressed) return;
 
-  if (controlState == APP_SELECTION && key == APP_SELECT_KEY) {
-    enterAppControlState();
+  if (controlState == SELECTING && key == APP_SELECT_KEY) {
+    enterControlState();
   }
 }
 
@@ -331,7 +364,7 @@ void setup() {
   ensureMqttConnected();
 
   // Default state
-  enterStandaloneState();
+  enterHomeState();
 
   Serial.println("System ready!");
 }
