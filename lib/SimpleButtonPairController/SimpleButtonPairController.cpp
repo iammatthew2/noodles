@@ -1,3 +1,5 @@
+/// @brief Manages two digital button inputs with tone feedback.
+
 #include "SimpleButtonPairController.h"
 
 SimpleButtonPairController::SimpleButtonPairController(int button1Pin,

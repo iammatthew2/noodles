@@ -1,3 +1,5 @@
+/// @brief Manages 16-key NeoPixel button grid for visual feedback and input.
+
 #ifndef NEOTRELLIS_CONTROLLER_H
 #define NEOTRELLIS_CONTROLLER_H
 

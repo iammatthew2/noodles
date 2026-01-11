@@ -1,3 +1,6 @@
+/// @brief Routes input events (encoder, button, trellis) to appropriate
+/// handlers.
+
 #ifndef INPUT_HANDLER_H
 #define INPUT_HANDLER_H
 

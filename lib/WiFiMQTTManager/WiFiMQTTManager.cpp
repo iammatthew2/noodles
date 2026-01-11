@@ -1,3 +1,5 @@
+/// @brief Handles WiFi connectivity and MQTT publish/subscribe communication.
+
 #include "WiFiMQTTManager.h"
 
 WiFiMQTTManager::WiFiMQTTManager(const char* ssid, const char* password,

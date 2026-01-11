@@ -1,3 +1,6 @@
+/// @brief Manages application state transitions and visual feedback (HOME,
+/// SELECTING, CONTROL modes).
+
 #ifndef STATE_MANAGER_H
 #define STATE_MANAGER_H
 

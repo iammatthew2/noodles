@@ -1,3 +1,6 @@
+/// @brief Manages application state transitions and visual feedback (HOME,
+/// SELECTING, CONTROL modes).
+
 #include "StateManager.h"
 
 #include "NeoTrellisController.h"
@@ -72,6 +75,7 @@ void StateManager::updateDisplay() {
 
 void StateManager::enterHome() {
   controlState = HOME;
+  selectedAppIndex = 0;
   trellisController->clearPixels();
   trellisController->showPixels();
   Serial.println("State: HOME");

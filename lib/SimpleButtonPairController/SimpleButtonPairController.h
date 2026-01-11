@@ -1,3 +1,5 @@
+/// @brief Manages two digital button inputs with tone feedback.
+
 #ifndef SIMPLE_BUTTON_PAIR_CONTROLLER_H
 #define SIMPLE_BUTTON_PAIR_CONTROLLER_H
 

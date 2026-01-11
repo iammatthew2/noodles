@@ -1,3 +1,5 @@
+/// @brief Manages 16-key NeoPixel button grid for visual feedback and input.
+
 #include "NeoTrellisController.h"
 
 // Initialize static instance pointer
@@ -49,16 +51,12 @@ TrellisCallback NeoTrellisController::keyCallback(keyEvent evt) {
   bool pressed = evt.bit.EDGE == SEESAW_KEYPAD_EDGE_RISING;
 
   if (pressed) {
-    Serial.print("Pressed: ");
-    Serial.println(evt.bit.NUM);
     tone(instance->_tonePin, 440 + (evt.bit.NUM * 50), 100);
     instance->trellis.pixels.setPixelColor(
         evt.bit.NUM,
         instance->wheel(
             map(evt.bit.NUM, 0, instance->trellis.pixels.numPixels(), 0, 255)));
   } else {
-    Serial.print("Released: ");
-    Serial.println(evt.bit.NUM);
     instance->trellis.pixels.setPixelColor(evt.bit.NUM, 0);
   }
 

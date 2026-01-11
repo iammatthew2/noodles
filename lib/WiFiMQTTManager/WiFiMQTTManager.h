@@ -1,3 +1,5 @@
+/// @brief Handles WiFi connectivity and MQTT publish/subscribe communication.
+
 #ifndef WIFI_MQTT_MANAGER_H
 #define WIFI_MQTT_MANAGER_H
 
