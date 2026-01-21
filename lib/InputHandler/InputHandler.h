@@ -26,6 +26,15 @@ class InputHandler {
   WiFiMQTTManager* wifiMqttManager;
   class NeoTrellisController* trellisController;
   int tonePin;
+
+  // Home state button control
+  uint8_t homeButtonIndex;
+  uint8_t homeButtonIntensity;
+  uint8_t homeButtonR;
+  uint8_t homeButtonG;
+  uint8_t homeButtonB;
+  uint8_t homeColorMode;  // 0=R, 1=G, 2=B
+  void updateHomeDisplay();
 };
 
 #endif

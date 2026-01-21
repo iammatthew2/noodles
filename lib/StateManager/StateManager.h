@@ -14,7 +14,8 @@ enum ControlState {
   CONTROL_YODEL,
   CONTROL_SKIPPY,
   CONTROL_JIBBERS,
-  CONTROL_PICKLES
+  CONTROL_PICKLES,
+  CONTROL_PUDDLES
 };
 
 struct AppDefinition {

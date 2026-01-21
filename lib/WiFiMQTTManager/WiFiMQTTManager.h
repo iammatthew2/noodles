@@ -37,9 +37,12 @@ class WiFiMQTTManager {
 
   unsigned long lastConnectivityCheckMs;
   static const unsigned long CONNECTIVITY_CHECK_INTERVAL_MS = 5000;
+  unsigned long lastBrokerPingLogMs;
+  static const unsigned long BROKER_PING_LOG_INTERVAL_MS = 10000;
 
   bool ensureMqttConnected();
   void pollConnectivity();
+  void logBrokerPing();
 };
 
 #endif

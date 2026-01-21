@@ -33,6 +33,8 @@ ControlState StateManager::getControlStateForApp(int appIndex) {
       return CONTROL_JIBBERS;
     case 3:
       return CONTROL_PICKLES;
+    case 4:
+      return CONTROL_PUDDLES;
     default:
       return HOME;
   }

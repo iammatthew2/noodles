@@ -14,16 +14,13 @@
 const char* ssid = SECRET_SSID;
 const char* password = SECRET_PASS;
 
-// MQTT configuration
-const char* mqttBroker = "192.168.0.132";  // Global broker
-const uint16_t mqttPort = 1889;  // Adjust if your broker uses a different port
-
 // App definitions
 AppDefinition apps[] = {
     {"Yodel", "apps/yodel/control", 255, 80, 80},
     {"Skippy", "apps/skippy/control", 80, 255, 120},
     {"Jibbers", "apps/jibbers/control", 80, 180, 255},
     {"Pickles", "apps/pickles/control", 255, 200, 80},
+    {"Puddles", "apps/puddles/control", 200, 120, 255},
 };
 
 StateManager* stateManager;
@@ -95,7 +92,7 @@ void setup() {
   stateManager = new StateManager(trellisController, TONE_PIN, apps, appCount);
 
   // Initialize WiFi/MQTT Manager
-  wifiMqttManager = new WiFiMQTTManager(ssid, password, mqttBroker, mqttPort);
+  wifiMqttManager = new WiFiMQTTManager(ssid, password, MQTT_BROKER, MQTT_PORT);
 
   // Initialize InputHandler
   inputHandler = new InputHandler(stateManager, wifiMqttManager, TONE_PIN);

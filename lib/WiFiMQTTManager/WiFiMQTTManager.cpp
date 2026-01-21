@@ -9,7 +9,8 @@ WiFiMQTTManager::WiFiMQTTManager(const char* ssid, const char* password,
       mqttBroker(mqttBroker),
       mqttPort(mqttPort),
       mqttClient(wifiClient),
-      lastConnectivityCheckMs(0) {}
+      lastConnectivityCheckMs(0),
+      lastBrokerPingLogMs(0) {}
 
 void WiFiMQTTManager::connect() {
   // Check WiFi module
@@ -121,6 +122,40 @@ void WiFiMQTTManager::pollConnectivity() {
   if (!mqttClient.connected()) {
     Serial.println("MQTT disconnected - attempting reconnect");
     ensureMqttConnected();
+  }
+
+  logBrokerPing();
+}
+
+void WiFiMQTTManager::logBrokerPing() {
+  unsigned long now = millis();
+  if (now - lastBrokerPingLogMs < BROKER_PING_LOG_INTERVAL_MS) {
+    return;
+  }
+  lastBrokerPingLogMs = now;
+
+  IPAddress brokerIp;
+  int dnsResult = WiFi.hostByName(mqttBroker, brokerIp);
+
+  Serial.print("Broker probe [");
+  Serial.print(mqttBroker);
+  Serial.print("] DNS=");
+  Serial.print(dnsResult == 1 ? "ok" : "fail");
+
+  if (dnsResult == 1) {
+    Serial.print(" ip=");
+    Serial.print(brokerIp);
+  }
+
+  int pingMs = WiFi.ping(mqttBroker);
+  Serial.print(" ping=");
+  if (pingMs >= 0) {
+    Serial.print(pingMs);
+    Serial.println("ms");
+  } else {
+    Serial.print("error(");
+    Serial.print(pingMs);
+    Serial.println(")");
   }
 }
 
