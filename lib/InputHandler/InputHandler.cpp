@@ -107,6 +107,19 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
                     (direction > 0 ? 1 : -1) + stateManager->getAppCount()) %
                    stateManager->getAppCount();
     stateManager->setSelectedAppIndex(newIndex);
+    const AppDefinition* app = stateManager->getCurrentApp();
+
+    if (app && wifiMqttManager->isMqttConnected()) {
+      char payload[96];
+      snprintf(payload, sizeof(payload),
+               "{\"state\":\"SELECTING\",\"app\":\"%s\"}", app->name);
+
+      bool published = wifiMqttManager->publish(app->topic, payload);
+      if (!published) {
+        Serial.println("Failed to publish app-selection MQTT message");
+      }
+    }
+
     Serial.print("App selection -> ");
     Serial.println(stateManager->getApps()[newIndex].name);
     tone(tonePin, direction > 0 ? 700 : 500, 60);
