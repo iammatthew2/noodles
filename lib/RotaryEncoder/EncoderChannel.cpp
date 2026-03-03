@@ -3,13 +3,12 @@
 
 #include "EncoderChannel.h"
 
-EncoderChannel::EncoderChannel(int pinA, int pinB, int channelNum, int tonePin)
+EncoderChannel::EncoderChannel(int pinA, int pinB, int channelNum)
     : encoder(pinA, pinB, RotaryEncoder::LatchMode::TWO03),
       _channelNum(channelNum),
       _lastPosition(0),
       _logicalPosition(0),
       _pendingSteps(0),
-      _tonePin(tonePin),
       _callback(nullptr) {}
 
 void EncoderChannel::update() {
@@ -24,11 +23,6 @@ void EncoderChannel::update() {
       int direction = (_pendingSteps > 0) ? 1 : -1;
       _pendingSteps -= direction * RAW_STEPS_PER_DETENT;
       _logicalPosition += direction;
-
-      // Immediate tone feedback for responsiveness
-      if (_tonePin >= 0) {
-        tone(_tonePin, (direction > 0) ? CW_TONE : CCW_TONE, 50);
-      }
 
       // Call user callback if registered
       if (_callback) {

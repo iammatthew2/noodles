@@ -163,10 +163,12 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
     Serial.println(direction > 0 ? "right" : "left");
   }
 
-  if (channel == 1) {
-    tone(tonePin, direction > 0 ? 523 : 392, 50);  // C5 / G4
-  } else if (channel == 2) {
-    tone(tonePin, direction > 0 ? 659 : 330, 50);  // E5 / E4
+  if (!stateManager->isInControlState()) {
+    if (channel == 1) {
+      tone(tonePin, direction > 0 ? 523 : 392, 50);  // C5 / G4
+    } else if (channel == 2) {
+      tone(tonePin, direction > 0 ? 659 : 330, 50);  // E5 / E4
+    }
   }
 }
 

@@ -99,8 +99,8 @@ void setup() {
   inputHandler->setNeoTrellis(trellisController);
 
   // Initialize encoders
-  encoder1 = new EncoderChannel(ENCODER1_PIN_A, ENCODER1_PIN_B, 1, TONE_PIN);
-  encoder2 = new EncoderChannel(ENCODER2_PIN_A, ENCODER2_PIN_B, 2, TONE_PIN);
+  encoder1 = new EncoderChannel(ENCODER1_PIN_A, ENCODER1_PIN_B, 1);
+  encoder2 = new EncoderChannel(ENCODER2_PIN_A, ENCODER2_PIN_B, 2);
 
   encoder1->setCallback(encoderCallback);
   encoder2->setCallback(encoderCallback);
