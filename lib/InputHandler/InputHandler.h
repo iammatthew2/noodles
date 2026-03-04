@@ -34,6 +34,10 @@ class InputHandler {
   uint8_t homeButtonG;
   uint8_t homeButtonB;
   uint8_t homeColorMode;  // 0=R, 1=G, 2=B
+  unsigned long lastSelectingPublishMs;
+  static const unsigned long SELECTING_PUBLISH_INTERVAL_MS = 120;
+  unsigned long lastEncoderPublishMs[2];
+  static const unsigned long ENCODER_PUBLISH_INTERVAL_MS = 80;
   void updateHomeDisplay();
 };
 

@@ -20,7 +20,9 @@ InputHandler::InputHandler(StateManager* stateManager,
       homeButtonR(255),
       homeButtonG(255),
       homeButtonB(255),
-      homeColorMode(0) {}
+      homeColorMode(0),
+      lastSelectingPublishMs(0),
+      lastEncoderPublishMs{0, 0} {}
 
 void InputHandler::setNeoTrellis(NeoTrellisController* trellis) {
   trellisController = trellis;
@@ -110,18 +112,20 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
     const AppDefinition* app = stateManager->getCurrentApp();
 
     if (app && wifiMqttManager->isMqttConnected()) {
-      char payload[96];
-      snprintf(payload, sizeof(payload),
-               "{\"state\":\"SELECTING\",\"app\":\"%s\"}", app->name);
+      unsigned long now = millis();
+      if (now - lastSelectingPublishMs >= SELECTING_PUBLISH_INTERVAL_MS) {
+        char payload[96];
+        snprintf(payload, sizeof(payload),
+                 "{\"state\":\"SELECTING\",\"app\":\"%s\"}", app->name);
 
-      bool published = wifiMqttManager->publish(app->topic, payload);
-      if (!published) {
-        Serial.println("Failed to publish app-selection MQTT message");
+        bool published = wifiMqttManager->publish(app->topic, payload);
+        if (!published) {
+          Serial.println("Failed to publish app-selection MQTT message");
+        }
+        lastSelectingPublishMs = now;
       }
     }
 
-    Serial.print("App selection -> ");
-    Serial.println(stateManager->getApps()[newIndex].name);
     tone(tonePin, direction > 0 ? 700 : 500, 60);
     return;
   }
@@ -130,28 +134,28 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
   if (!stateManager->isHome()) {
     const AppDefinition* app = stateManager->getCurrentApp();
     if (app) {
-      Serial.print("Encoder ");
-      Serial.print(channel);
-      Serial.print(": ");
-      Serial.print(app->name);
-      Serial.print(" - ");
-      Serial.println(direction > 0 ? "right" : "left");
-
       if (wifiMqttManager->isMqttConnected()) {
-        char appNameLower[24];
-        size_t i = 0;
-        for (; app->name[i] != '\0' && i < sizeof(appNameLower) - 1; ++i) {
-          appNameLower[i] = tolower((unsigned char)app->name[i]);
-        }
-        appNameLower[i] = '\0';
+        unsigned long now = millis();
+        int channelIndex = (channel == 2) ? 1 : 0;
+        if (now - lastEncoderPublishMs[channelIndex] >=
+            ENCODER_PUBLISH_INTERVAL_MS) {
+          char appNameLower[24];
+          size_t i = 0;
+          for (; app->name[i] != '\0' && i < sizeof(appNameLower) - 1; ++i) {
+            appNameLower[i] = tolower((unsigned char)app->name[i]);
+          }
+          appNameLower[i] = '\0';
 
-        char payload[48];
-        snprintf(payload, sizeof(payload), "enc%d-%s-%s", channel, appNameLower,
-                 direction > 0 ? "right" : "left");
+          char payload[48];
+          snprintf(payload, sizeof(payload), "enc%d-%s-%s", channel,
+                   appNameLower, direction > 0 ? "right" : "left");
 
-        bool published = wifiMqttManager->publish(app->topic, payload);
-        if (!published) {
-          Serial.println("Failed to publish encoder MQTT message");
+          bool published = wifiMqttManager->publish(app->topic, payload);
+          if (!published) {
+            Serial.println("Failed to publish encoder MQTT message");
+          } else {
+            lastEncoderPublishMs[channelIndex] = now;
+          }
         }
       }
     }
@@ -206,6 +210,13 @@ void InputHandler::handleButtonCallback(int buttonNum) {
 
 void InputHandler::handleTrellisKey(uint8_t key, bool pressed) {
   if (!pressed) return;
+
+  if (stateManager->isSelecting()) {
+    Serial.print("Selecting confirmed with key: ");
+    Serial.println(key);
+    stateManager->enterControl();
+    return;
+  }
 
   // Home state rainbow burst effect
   if (stateManager->isHome()) {
@@ -322,9 +333,5 @@ void InputHandler::handleTrellisKey(uint8_t key, bool pressed) {
         }
       }
     }
-  }
-
-  if (stateManager->isSelecting() && key == 15) {  // APP_SELECT_KEY = 15
-    stateManager->enterControl();
   }
 }

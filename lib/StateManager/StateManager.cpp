@@ -52,12 +52,10 @@ void StateManager::updateDisplay() {
     trellisController->clearPixels();
     const AppDefinition* app = getCurrentApp();
     if (app) {
-      trellisController->setPixelColor(
-          0, trellisController->color(app->r, app->g, app->b));
-    }
-    // Blink will be handled by updateBlink()
-    if (selectBlinkOn) {
-      trellisController->setPixelColor(15, trellisController->color(255, 0, 0));
+      uint32_t appColor = trellisController->color(app->r, app->g, app->b);
+      for (uint8_t i = 0; i < 16; i++) {
+        trellisController->setPixelColor(i, appColor);
+      }
     }
     trellisController->showPixels();
   } else if (controlState == HOME) {
@@ -112,10 +110,5 @@ void StateManager::toggleSelecting() {
 
 void StateManager::updateBlink() {
   if (controlState != SELECTING) return;
-  unsigned long now = millis();
-  if (now - lastBlinkMs >= BLINK_INTERVAL_MS) {
-    lastBlinkMs = now;
-    selectBlinkOn = !selectBlinkOn;
-    updateDisplay();
-  }
+  // No blink behavior in selecting mode; keep display steady.
 }

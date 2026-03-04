@@ -123,8 +123,6 @@ void WiFiMQTTManager::pollConnectivity() {
     Serial.println("MQTT disconnected - attempting reconnect");
     ensureMqttConnected();
   }
-
-  logBrokerPing();
 }
 
 void WiFiMQTTManager::logBrokerPing() {
