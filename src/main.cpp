@@ -58,6 +58,41 @@ void buttonCallback(int buttonNum) {
 
 void connectToWiFi() { wifiMqttManager->connect(); }
 
+void runStartupRainbowBurst() {
+  const unsigned long stepDelayMs = 60;
+
+  for (uint8_t step = 0; step < 16; step++) {
+    for (uint8_t i = 0; i < 16; i++) {
+      uint8_t hue = (uint8_t)((i * 16 + step * 16) & 0xFF);
+      uint8_t r, g, b;
+
+      if (hue < 85) {
+        r = hue * 3;
+        g = 255 - hue * 3;
+        b = 0;
+      } else if (hue < 170) {
+        uint8_t p = hue - 85;
+        r = 255 - p * 3;
+        g = 0;
+        b = p * 3;
+      } else {
+        uint8_t p = hue - 170;
+        r = 0;
+        g = p * 3;
+        b = 255 - p * 3;
+      }
+
+      trellisController->setPixelColor(i, trellisController->color(r, g, b));
+    }
+    trellisController->showPixels();
+    delay(stepDelayMs);
+  }
+
+  tone(TONE_PIN, 1047, 80);
+  delay(100);
+  tone(TONE_PIN, 1319, 80);
+}
+
 void refreshSelectionPixels() {}
 
 void updateSelectionBlink() {}
@@ -115,6 +150,12 @@ void setup() {
   wifiMqttManager->connect();
 
   // Default state
+  stateManager->enterHome();
+
+  // One-time startup rainbow burst
+  runStartupRainbowBurst();
+
+  // Return to HOME display after burst
   stateManager->enterHome();
 
   Serial.println("System ready!");
