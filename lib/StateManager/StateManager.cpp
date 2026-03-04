@@ -50,11 +50,20 @@ const AppDefinition* StateManager::getCurrentApp() const {
 void StateManager::updateDisplay() {
   if (controlState == SELECTING) {
     trellisController->clearPixels();
-    const AppDefinition* app = getCurrentApp();
-    if (app) {
-      uint32_t appColor = trellisController->color(app->r, app->g, app->b);
-      for (uint8_t i = 0; i < 16; i++) {
-        trellisController->setPixelColor(i, appColor);
+    // Selection menu options:
+    // key 0 -> Skippy (app index 1)
+    // key 1 -> Pickles (app index 3)
+    // key 2 -> Puddles (app index 4)
+    // key 3 -> Yodel (app index 0)
+    const int optionAppIndices[4] = {1, 3, 4, 0};
+
+    for (uint8_t key = 0; key < 4; key++) {
+      int appIndex = optionAppIndices[key];
+      if (appIndex >= 0 && appIndex < appCount) {
+        const AppDefinition* optionApp = &apps[appIndex];
+        trellisController->setPixelColor(
+            key,
+            trellisController->color(optionApp->r, optionApp->g, optionApp->b));
       }
     }
     trellisController->showPixels();
@@ -66,7 +75,7 @@ void StateManager::updateDisplay() {
     const AppDefinition* app = getCurrentApp();
     if (app) {
       trellisController->setPixelColor(
-          0, trellisController->color(app->r, app->g, app->b));
+          14, trellisController->color(app->r, app->g, app->b));
       trellisController->setPixelColor(15, trellisController->color(0, 255, 0));
     }
     trellisController->showPixels();

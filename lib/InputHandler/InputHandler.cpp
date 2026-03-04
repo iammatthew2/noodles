@@ -21,7 +21,6 @@ InputHandler::InputHandler(StateManager* stateManager,
       homeButtonG(255),
       homeButtonB(255),
       homeColorMode(0),
-      lastSelectingPublishMs(0),
       lastEncoderPublishMs{0, 0} {}
 
 void InputHandler::setNeoTrellis(NeoTrellisController* trellis) {
@@ -103,30 +102,8 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
     return;
   }
 
-  // Selection logic uses encoder 1
-  if (stateManager->isSelecting() && channel == 1) {
-    int newIndex = (stateManager->getSelectedAppIndex() +
-                    (direction > 0 ? 1 : -1) + stateManager->getAppCount()) %
-                   stateManager->getAppCount();
-    stateManager->setSelectedAppIndex(newIndex);
-    const AppDefinition* app = stateManager->getCurrentApp();
-
-    if (app && wifiMqttManager->isMqttConnected()) {
-      unsigned long now = millis();
-      if (now - lastSelectingPublishMs >= SELECTING_PUBLISH_INTERVAL_MS) {
-        char payload[96];
-        snprintf(payload, sizeof(payload),
-                 "{\"state\":\"SELECTING\",\"app\":\"%s\"}", app->name);
-
-        bool published = wifiMqttManager->publish(app->topic, payload);
-        if (!published) {
-          Serial.println("Failed to publish app-selection MQTT message");
-        }
-        lastSelectingPublishMs = now;
-      }
-    }
-
-    tone(tonePin, direction > 0 ? 700 : 500, 60);
+  // In selection mode, app choice is done via Trellis keys 0-3.
+  if (stateManager->isSelecting()) {
     return;
   }
 
@@ -167,12 +144,10 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
     Serial.println(direction > 0 ? "right" : "left");
   }
 
-  if (!stateManager->isInControlState()) {
-    if (channel == 1) {
-      tone(tonePin, direction > 0 ? 523 : 392, 50);  // C5 / G4
-    } else if (channel == 2) {
-      tone(tonePin, direction > 0 ? 659 : 330, 50);  // E5 / E4
-    }
+  if (channel == 1) {
+    tone(tonePin, direction > 0 ? 523 : 392, 50);  // C5 / G4
+  } else if (channel == 2) {
+    tone(tonePin, direction > 0 ? 659 : 330, 50);  // E5 / E4
   }
 }
 
@@ -212,9 +187,23 @@ void InputHandler::handleTrellisKey(uint8_t key, bool pressed) {
   if (!pressed) return;
 
   if (stateManager->isSelecting()) {
-    Serial.print("Selecting confirmed with key: ");
-    Serial.println(key);
-    stateManager->enterControl();
+    int selectedIndex = -1;
+    if (key == 0) {
+      selectedIndex = 1;  // Skippy
+    } else if (key == 1) {
+      selectedIndex = 3;  // Pickles
+    } else if (key == 2) {
+      selectedIndex = 4;  // Puddles
+    } else if (key == 3) {
+      selectedIndex = 0;  // Yodel
+    }
+
+    if (selectedIndex >= 0 && selectedIndex < stateManager->getAppCount()) {
+      stateManager->setSelectedAppIndex(selectedIndex);
+      Serial.print("Selecting confirmed: ");
+      Serial.println(stateManager->getApps()[selectedIndex].name);
+      stateManager->enterControl();
+    }
     return;
   }
 
