@@ -16,11 +16,11 @@ InputHandler::InputHandler(StateManager* stateManager,
       trellisController(nullptr),
       tonePin(tonePin),
       homeButtonIndex(0),
-      homeButtonIntensity(0),
       homeButtonR(255),
       homeButtonG(255),
       homeButtonB(255),
-      homeColorMode(0) {}
+      homeColorMode(0),
+      homeColorRangeIndex(0) {}
 
 void InputHandler::setNeoTrellis(NeoTrellisController* trellis) {
   trellisController = trellis;
@@ -29,11 +29,25 @@ void InputHandler::setNeoTrellis(NeoTrellisController* trellis) {
 void InputHandler::updateHomeDisplay() {
   if (!trellisController) return;
 
+  // Business rule: HOME encoder 1 selects one of four vertical columns.
+  // Column order from right to left:
+  // 0: keys 0,1,2,3
+  // 1: keys 4,5,6,7
+  // 2: keys 8,9,10,11
+  // 3: keys 12,13,14,15
+  static const uint8_t homeColumns[4][4] = {
+      {0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}, {12, 13, 14, 15}};
+
   trellisController->clearPixels();
-  // Set the current button with current RGB color
-  trellisController->setPixelColor(
-      homeButtonIndex,
-      trellisController->color(homeButtonR, homeButtonG, homeButtonB));
+
+  uint8_t columnIndex = homeButtonIndex % 4;
+  uint32_t columnColor =
+      trellisController->color(homeButtonR, homeButtonG, homeButtonB);
+  for (uint8_t row = 0; row < 4; row++) {
+    trellisController->setPixelColor(homeColumns[columnIndex][row],
+                                     columnColor);
+  }
+
   trellisController->showPixels();
 }
 
@@ -41,26 +55,58 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
   // Business rule: encoders edit local HOME UI only while in HOME.
   // Home state button control with encoder 1
   if (stateManager->isHome() && channel == 1) {
-    // Move button selection
+    // Business rule:
+    // - Bar movement is clamped at column ends (no wraparound).
+    // - After reaching an end, additional pushes against that limit cycle
+    //   through color ranges that remain active while moving back inward.
+    static const uint8_t homeColorRanges[][3] = {
+        {255, 80, 80},    // red-ish
+        {255, 180, 60},   // amber
+        {240, 240, 80},   // yellow
+        {80, 255, 120},   // green
+        {80, 180, 255},   // blue
+        {200, 120, 255},  // purple
+        {255, 120, 200}   // pink
+    };
+    const uint8_t rangeCount =
+        sizeof(homeColorRanges) / sizeof(homeColorRanges[0]);
+
+    bool cycledColor = false;
     if (direction > 0) {
-      homeButtonIndex = (homeButtonIndex + 1) % 16;
-      homeButtonIntensity =
-          (homeButtonIntensity + 15 > 255) ? 255 : homeButtonIntensity + 15;
+      if (homeButtonIndex < 3) {
+        homeButtonIndex++;
+      } else {
+        homeColorRangeIndex = (homeColorRangeIndex + 1) % rangeCount;
+        cycledColor = true;
+      }
     } else {
-      homeButtonIndex = (homeButtonIndex - 1 + 16) % 16;
-      homeButtonIntensity =
-          (homeButtonIntensity < 15) ? 0 : homeButtonIntensity - 15;
+      if (homeButtonIndex > 0) {
+        homeButtonIndex--;
+      } else {
+        homeColorRangeIndex =
+            (homeColorRangeIndex + rangeCount - 1) % rangeCount;
+        cycledColor = true;
+      }
     }
 
-    // Map intensity to tone (0-255 -> 200-2000 Hz)
-    int toneFreq = 200 + (homeButtonIntensity * 7);
+    if (cycledColor) {
+      homeButtonR = homeColorRanges[homeColorRangeIndex][0];
+      homeButtonG = homeColorRanges[homeColorRangeIndex][1];
+      homeButtonB = homeColorRanges[homeColorRangeIndex][2];
+    }
+
+    int toneFreq = 700 + (homeButtonIndex * 120);
     tone(tonePin, toneFreq, 40);
 
     updateHomeDisplay();
-    Serial.print("Home button control: Button ");
+    Serial.print("Home bar column: ");
     Serial.print(homeButtonIndex);
-    Serial.print(" Intensity: ");
-    Serial.println(homeButtonIntensity);
+    if (cycledColor) {
+      Serial.print(" color range -> ");
+      Serial.println(homeColorRangeIndex);
+    } else {
+      Serial.println(direction > 0 ? " (right)" : " (left)");
+    }
     return;
   }
 
@@ -175,11 +221,11 @@ void InputHandler::handleButtonCallback(int buttonNum) {
     Serial.println("Button 2 pressed - resetting to home state");
     stateManager->enterHome();
     homeButtonIndex = 0;
-    homeButtonIntensity = 0;
     homeButtonR = 255;
     homeButtonG = 255;
     homeButtonB = 255;
     homeColorMode = 0;
+    homeColorRangeIndex = 0;
     tone(tonePin, 500, 100);  // Reset tone
   }
 }
