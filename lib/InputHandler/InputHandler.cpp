@@ -20,8 +20,7 @@ InputHandler::InputHandler(StateManager* stateManager,
       homeButtonR(255),
       homeButtonG(255),
       homeButtonB(255),
-      homeColorMode(0),
-      lastEncoderPublishMs{0, 0} {}
+      homeColorMode(0) {}
 
 void InputHandler::setNeoTrellis(NeoTrellisController* trellis) {
   trellisController = trellis;
@@ -39,6 +38,7 @@ void InputHandler::updateHomeDisplay() {
 }
 
 void InputHandler::handleEncoderCallback(int channel, int direction) {
+  // Business rule: encoders edit local HOME UI only while in HOME.
   // Home state button control with encoder 1
   if (stateManager->isHome() && channel == 1) {
     // Move button selection
@@ -107,32 +107,26 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
     return;
   }
 
-  // Log encoder event with app name if in SELECTING or CONTROL state
+  // Business rule: in CONTROL, encoder turns are forwarded as MQTT control
+  // events to the currently selected app topic.
   if (!stateManager->isHome()) {
     const AppDefinition* app = stateManager->getCurrentApp();
     if (app) {
       if (wifiMqttManager->isMqttConnected()) {
-        unsigned long now = millis();
-        int channelIndex = (channel == 2) ? 1 : 0;
-        if (now - lastEncoderPublishMs[channelIndex] >=
-            ENCODER_PUBLISH_INTERVAL_MS) {
-          char appNameLower[24];
-          size_t i = 0;
-          for (; app->name[i] != '\0' && i < sizeof(appNameLower) - 1; ++i) {
-            appNameLower[i] = tolower((unsigned char)app->name[i]);
-          }
-          appNameLower[i] = '\0';
+        char appNameLower[24];
+        size_t i = 0;
+        for (; app->name[i] != '\0' && i < sizeof(appNameLower) - 1; ++i) {
+          appNameLower[i] = tolower((unsigned char)app->name[i]);
+        }
+        appNameLower[i] = '\0';
 
-          char payload[48];
-          snprintf(payload, sizeof(payload), "enc%d-%s-%s", channel,
-                   appNameLower, direction > 0 ? "right" : "left");
+        char payload[48];
+        snprintf(payload, sizeof(payload), "enc%d-%s-%s", channel, appNameLower,
+                 direction > 0 ? "right" : "left");
 
-          bool published = wifiMqttManager->publish(app->topic, payload);
-          if (!published) {
-            Serial.println("Failed to publish encoder MQTT message");
-          } else {
-            lastEncoderPublishMs[channelIndex] = now;
-          }
+        bool published = wifiMqttManager->publish(app->topic, payload);
+        if (!published) {
+          Serial.println("Failed to publish encoder MQTT message");
         }
       }
     }
@@ -144,14 +138,21 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
     Serial.println(direction > 0 ? "right" : "left");
   }
 
-  if (channel == 1) {
-    tone(tonePin, direction > 0 ? 523 : 392, 50);  // C5 / G4
-  } else if (channel == 2) {
-    tone(tonePin, direction > 0 ? 659 : 330, 50);  // E5 / E4
+  // Business rule: mute encoder tones during CONTROL; keep tones for HOME UX.
+  if (!stateManager->isInControlState()) {
+    if (channel == 1) {
+      tone(tonePin, direction > 0 ? 523 : 392, 50);  // C5 / G4
+    } else if (channel == 2) {
+      tone(tonePin, direction > 0 ? 659 : 330, 50);  // E5 / E4
+    }
   }
 }
 
 void InputHandler::handleButtonCallback(int buttonNum) {
+  // Business rule:
+  // - Button 1 toggles between HOME/SELECTING and can exit CONTROL to
+  // SELECTING.
+  // - Button 2 is a hard reset back to HOME defaults.
   // Button 1: toggle between SELECTING and current state
   if (buttonNum == 1) {
     if (stateManager->isSelecting()) {
@@ -186,6 +187,8 @@ void InputHandler::handleButtonCallback(int buttonNum) {
 void InputHandler::handleTrellisKey(uint8_t key, bool pressed) {
   if (!pressed) return;
 
+  // Business rule: app selection is explicit and limited to keys 0-3.
+  // Choosing a valid key enters CONTROL immediately.
   if (stateManager->isSelecting()) {
     int selectedIndex = -1;
     if (key == 0) {
