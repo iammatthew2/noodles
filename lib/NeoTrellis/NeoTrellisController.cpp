@@ -25,6 +25,9 @@ bool NeoTrellisController::begin() {
     return false;
   }
 
+  // Cap LED brightness for better battery stability.
+  trellis.pixels.setBrightness(64);
+
   Serial.println("NeoPixel Trellis started");
 
   // Activate all keys and set callbacks
