@@ -16,10 +16,10 @@ InputHandler::InputHandler(StateManager* stateManager,
       trellisController(nullptr),
       tonePin(tonePin),
       homeButtonIndex(0),
+      homeRowIndex(0),
       homeButtonR(255),
       homeButtonG(255),
       homeButtonB(255),
-      homeColorMode(0),
       homeColorRangeIndex(0) {}
 
 void InputHandler::setNeoTrellis(NeoTrellisController* trellis) {
@@ -29,7 +29,7 @@ void InputHandler::setNeoTrellis(NeoTrellisController* trellis) {
 void InputHandler::updateHomeDisplay() {
   if (!trellisController) return;
 
-  // Business rule: HOME encoder 1 selects one of four vertical columns.
+  // HOME encoder 1 selects one of four vertical columns.
   // Column order from right to left:
   // 0: keys 0,1,2,3
   // 1: keys 4,5,6,7
@@ -38,21 +38,33 @@ void InputHandler::updateHomeDisplay() {
   static const uint8_t homeColumns[4][4] = {
       {0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}, {12, 13, 14, 15}};
 
+  // HOME encoder 2 selects one of four horizontal rows.
+  // Row order from top to bottom:
+  // 0: keys 0,4,8,12
+  // 1: keys 1,5,9,13
+  // 2: keys 2,6,10,14
+  // 3: keys 3,7,11,15
+  static const uint8_t homeRows[4][4] = {
+      {0, 4, 8, 12}, {1, 5, 9, 13}, {2, 6, 10, 14}, {3, 7, 11, 15}};
+
   trellisController->clearPixels();
 
   uint8_t columnIndex = homeButtonIndex % 4;
+  uint8_t rowIndex = homeRowIndex % 4;
   uint32_t columnColor =
       trellisController->color(homeButtonR, homeButtonG, homeButtonB);
-  for (uint8_t row = 0; row < 4; row++) {
-    trellisController->setPixelColor(homeColumns[columnIndex][row],
-                                     columnColor);
+  for (uint8_t i = 0; i < 4; i++) {
+    trellisController->setPixelColor(homeColumns[columnIndex][i], columnColor);
+  }
+  for (uint8_t i = 0; i < 4; i++) {
+    trellisController->setPixelColor(homeRows[rowIndex][i], columnColor);
   }
 
   trellisController->showPixels();
 }
 
 void InputHandler::handleEncoderCallback(int channel, int direction) {
-  // Business rule: encoders edit local HOME UI only while in HOME.
+  // encoders edit local HOME UI only while in HOME.
   // Home state button control with encoder 1
   if (stateManager->isHome() && channel == 1) {
     // Business rule:
@@ -110,41 +122,56 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
     return;
   }
 
-  // Home state color control with encoder 2
+  // Home state row control with encoder 2
   if (stateManager->isHome() && channel == 2) {
-    uint8_t step = 15;
+    static const uint8_t homeColorRanges[][3] = {
+        {255, 80, 80},    // red-ish
+        {255, 180, 60},   // amber
+        {240, 240, 80},   // yellow
+        {80, 255, 120},   // green
+        {80, 180, 255},   // blue
+        {200, 120, 255},  // purple
+        {255, 120, 200}   // pink
+    };
+    const uint8_t rangeCount =
+        sizeof(homeColorRanges) / sizeof(homeColorRanges[0]);
 
-    // Adjust current color channel based on direction
-    if (homeColorMode == 0) {  // Red channel
-      homeButtonR =
-          (direction > 0)
-              ? ((homeButtonR + step > 255) ? 255 : homeButtonR + step)
-              : ((homeButtonR < step) ? 0 : homeButtonR - step);
-    } else if (homeColorMode == 1) {  // Green channel
-      homeButtonG =
-          (direction > 0)
-              ? ((homeButtonG + step > 255) ? 255 : homeButtonG + step)
-              : ((homeButtonG < step) ? 0 : homeButtonG - step);
-    } else {  // Blue channel
-      homeButtonB =
-          (direction > 0)
-              ? ((homeButtonB + step > 255) ? 255 : homeButtonB + step)
-              : ((homeButtonB < step) ? 0 : homeButtonB - step);
+    bool cycledColor = false;
+    if (direction > 0) {
+      if (homeRowIndex < 3) {
+        homeRowIndex++;
+      } else {
+        homeColorRangeIndex = (homeColorRangeIndex + 1) % rangeCount;
+        cycledColor = true;
+      }
+    } else {
+      if (homeRowIndex > 0) {
+        homeRowIndex--;
+      } else {
+        homeColorRangeIndex =
+            (homeColorRangeIndex + rangeCount - 1) % rangeCount;
+        cycledColor = true;
+      }
     }
 
-    // Map current value to tone
-    uint8_t currentValue = (homeColorMode == 0)   ? homeButtonR
-                           : (homeColorMode == 1) ? homeButtonG
-                                                  : homeButtonB;
-    int toneFreq = 200 + (currentValue * 7);
+    if (cycledColor) {
+      homeButtonR = homeColorRanges[homeColorRangeIndex][0];
+      homeButtonG = homeColorRanges[homeColorRangeIndex][1];
+      homeButtonB = homeColorRanges[homeColorRangeIndex][2];
+    }
+
+    int toneFreq = 520 + (homeRowIndex * 110);
     tone(tonePin, toneFreq, 40);
 
     updateHomeDisplay();
-    const char* colorNames[] = {"Red", "Green", "Blue"};
-    Serial.print("Home ");
-    Serial.print(colorNames[homeColorMode]);
-    Serial.print(": ");
-    Serial.println(currentValue);
+    Serial.print("Home bar row: ");
+    Serial.print(homeRowIndex);
+    if (cycledColor) {
+      Serial.print(" color range -> ");
+      Serial.println(homeColorRangeIndex);
+    } else {
+      Serial.println(direction > 0 ? " (down)" : " (up)");
+    }
     return;
   }
 
@@ -153,7 +180,7 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
     return;
   }
 
-  // Business rule: in CONTROL, encoder turns are forwarded as MQTT control
+  // in CONTROL, encoder turns are forwarded as MQTT control
   // events to the currently selected app topic.
   if (!stateManager->isHome()) {
     const AppDefinition* app = stateManager->getCurrentApp();
@@ -184,7 +211,7 @@ void InputHandler::handleEncoderCallback(int channel, int direction) {
     Serial.println(direction > 0 ? "right" : "left");
   }
 
-  // Business rule: mute encoder tones during CONTROL; keep tones for HOME UX.
+  // mute encoder tones during CONTROL; keep tones for HOME UX.
   if (!stateManager->isInControlState()) {
     if (channel == 1) {
       tone(tonePin, direction > 0 ? 523 : 392, 50);  // C5 / G4
@@ -221,10 +248,10 @@ void InputHandler::handleButtonCallback(int buttonNum) {
     Serial.println("Button 2 pressed - resetting to home state");
     stateManager->enterHome();
     homeButtonIndex = 0;
+    homeRowIndex = 0;
     homeButtonR = 255;
     homeButtonG = 255;
     homeButtonB = 255;
-    homeColorMode = 0;
     homeColorRangeIndex = 0;
     tone(tonePin, 500, 100);  // Reset tone
   }
@@ -233,7 +260,7 @@ void InputHandler::handleButtonCallback(int buttonNum) {
 void InputHandler::handleTrellisKey(uint8_t key, bool pressed) {
   if (!pressed) return;
 
-  // Business rule: app selection is explicit and limited to keys 0-3.
+  // app selection is explicit and limited to keys 0-3.
   // Choosing a valid key enters CONTROL immediately.
   if (stateManager->isSelecting()) {
     int selectedIndex = -1;

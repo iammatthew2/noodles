@@ -49,7 +49,7 @@ const AppDefinition* StateManager::getCurrentApp() const {
 
 void StateManager::updateDisplay() {
   if (controlState == SELECTING) {
-    // Business rule: SELECTING is a 4-choice app menu on keys 0-3 only.
+    // SELECTING is a 4-choice app menu on keys 0-3 only.
     trellisController->clearPixels();
     // Selection menu options:
     // key 0 -> Skippy (app index 1)
@@ -69,11 +69,11 @@ void StateManager::updateDisplay() {
     }
     trellisController->showPixels();
   } else if (controlState == HOME) {
-    // Business rule: HOME has no persistent app menu UI from StateManager.
+    // HOME has no persistent app menu UI from StateManager.
     trellisController->clearPixels();
     trellisController->showPixels();
   } else if (isInControlState()) {
-    // Business rule: CONTROL clears all keys, then shows status on keys 14/15.
+    // CONTROL clears all keys, then shows status on keys 14/15.
     // - Key 14: selected app identity color
     // - Key 15: control-active indicator
     trellisController->clearPixels();
@@ -88,7 +88,7 @@ void StateManager::updateDisplay() {
 }
 
 void StateManager::enterHome() {
-  // Business rule: returning HOME resets app selection to default index 0.
+  // returning HOME resets app selection to default index 0.
   controlState = HOME;
   selectedAppIndex = 0;
   trellisController->clearPixels();
@@ -97,7 +97,7 @@ void StateManager::enterHome() {
 }
 
 void StateManager::enterSelecting() {
-  // Business rule: SELECTING is entered explicitly (button flow), then
+  // SELECTING is entered explicitly (button flow), then
   // rendered.
   controlState = SELECTING;
   selectBlinkOn = false;
@@ -107,7 +107,7 @@ void StateManager::enterSelecting() {
 }
 
 void StateManager::enterControl() {
-  // Business rule: CONTROL state is derived from selected app index.
+  // CONTROL state is derived from selected app index.
   ControlState newState = getControlStateForApp(selectedAppIndex);
   controlState = newState;
   Serial.print("State: CONTROL -> ");

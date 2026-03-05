@@ -29,10 +29,10 @@ class InputHandler {
 
   // Home state button control
   uint8_t homeButtonIndex;
+  uint8_t homeRowIndex;
   uint8_t homeButtonR;
   uint8_t homeButtonG;
   uint8_t homeButtonB;
-  uint8_t homeColorMode;  // 0=R, 1=G, 2=B
   uint8_t homeColorRangeIndex;
   void updateHomeDisplay();
 };
