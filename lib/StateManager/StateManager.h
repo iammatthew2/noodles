@@ -15,7 +15,8 @@ enum ControlState {
   CONTROL_SKIPPY,
   CONTROL_JIBBERS,
   CONTROL_PICKLES,
-  CONTROL_PUDDLES
+  CONTROL_PUDDLES,
+  CONTROL_NURBO
 };
 
 struct AppDefinition {

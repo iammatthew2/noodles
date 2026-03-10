@@ -272,6 +272,8 @@ void InputHandler::handleTrellisKey(uint8_t key, bool pressed) {
       selectedIndex = 4;  // Puddles
     } else if (key == 3) {
       selectedIndex = 0;  // Yodel
+    } else if (key == 4) {
+      selectedIndex = 5;  // Nurbo
     }
 
     if (selectedIndex >= 0 && selectedIndex < stateManager->getAppCount()) {

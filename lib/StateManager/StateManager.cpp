@@ -35,6 +35,8 @@ ControlState StateManager::getControlStateForApp(int appIndex) {
       return CONTROL_PICKLES;
     case 4:
       return CONTROL_PUDDLES;
+    case 5:
+      return CONTROL_NURBO;
     default:
       return HOME;
   }
@@ -56,9 +58,10 @@ void StateManager::updateDisplay() {
     // key 1 -> Pickles (app index 3)
     // key 2 -> Puddles (app index 4)
     // key 3 -> Yodel (app index 0)
-    const int optionAppIndices[4] = {1, 3, 4, 0};
+    // key 4 -> Nurbo (app index 5)
+    const int optionAppIndices[5] = {1, 3, 4, 0, 5};
 
-    for (uint8_t key = 0; key < 4; key++) {
+    for (uint8_t key = 0; key < 5; key++) {
       int appIndex = optionAppIndices[key];
       if (appIndex >= 0 && appIndex < appCount) {
         const AppDefinition* optionApp = &apps[appIndex];

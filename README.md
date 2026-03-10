@@ -31,6 +31,7 @@ Configured app targets (defined in `main.cpp`):
 | Jibbers | `apps/jibbers/control`  | Blue          |
 | Pickles | `apps/pickles/control`  | Yellow        |
 | Puddles | `apps/puddles/control`  | Purple        |
+| Nurbo   | `apps/nurbo/control`    | Orange        |
 
 # Building
 
