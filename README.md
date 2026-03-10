@@ -2,6 +2,8 @@
 
 A general-purpose MQTT controller built on the Arduino Nano 33 IoT. Noodles uses a NeoTrellis 4x4 keypad, two rotary encoders, and a button pair to select and control other devices over MQTT.
 
+<img width="999" alt="noodles" src="https://github.com/user-attachments/assets/41192e6e-8e7b-4615-b88a-13dcf0b38b11" />
+
 ## Hardware
 
 - **Board:** Arduino Nano 33 IoT
