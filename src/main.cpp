@@ -22,6 +22,7 @@ AppDefinition apps[] = {
     {"Pickles", "apps/pickles/control", 255, 200, 80},
     {"Puddles", "apps/puddles/control", 200, 120, 255},
     {"Nurbo", "apps/nurbo/control", 255, 140, 50},
+    {"XYZ", "apps/xyz/control", 80, 255, 210},
 };
 
 StateManager* stateManager;

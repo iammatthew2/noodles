@@ -162,7 +162,7 @@ JSON key events `14` and `15` behave identically to Puddles.
 
 ---
 
-### `apps/yodel/control`, `apps/pickles/control`, `apps/jibbers/control`
+### `apps/yodel/control`, `apps/pickles/control`, `apps/jibbers/control`, `apps/xyz/control`
 **Publisher:** Noodles  
 No subscriber project exists in this workspace for these apps. Noodles publishes to them when selected; payloads follow the same format as other apps (JSON key presses and plain-text encoder strings).
 
@@ -299,7 +299,7 @@ Noodles is the only publisher to `apps/*/control` topics. It publishes two forma
 enc{channel}-{app}-{direction}
 ```
 - `channel`: `1` or `2`
-- `app`: lowercase app name — `yodel`, `skippy`, `jibbers`, `pickles`, `puddles`, `nurbo`
+- `app`: lowercase app name — `yodel`, `skippy`, `jibbers`, `pickles`, `puddles`, `nurbo`, `xyz`
 - `direction`: `right` or `left`
 
 Example: `enc1-skippy-right`

@@ -1,6 +1,6 @@
 # Noodles
 
-A general-purpose MQTT controller built on the Arduino Nano 33 IoT. Noodles uses a NeoTrellis 4x4 keypad, two rotary encoders, and a button pair to select and control other devices over MQTT.
+A general-purpose MQTT controller built on the Arduino Nano 33 IoT. Noodles uses a NeoTrellis 4x4 keypad, two rotary encoders, and a button pair to select and control other devices over MQTT. Built on [PlatformIO](https://platformio.org/).
 
 <img width="999" alt="noodles" src="https://github.com/user-attachments/assets/41192e6e-8e7b-4615-b88a-13dcf0b38b11" />
 
@@ -32,10 +32,7 @@ Configured app targets (defined in `main.cpp`):
 | Pickles | `apps/pickles/control`  | Yellow        |
 | Puddles | `apps/puddles/control`  | Purple        |
 | Nurbo   | `apps/nurbo/control`    | Orange        |
-
-# Building
-
-Built with [PlatformIO](https://platformio.org/).
+| XYZ     | `apps/xyz/control`      | Teal          |
 
 ## Libraries
 
